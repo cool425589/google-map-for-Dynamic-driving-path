@@ -41,10 +41,14 @@ Give a placeid can covert to latlng.
 --------------------------
 
   Example:
-     Edit an origin location and destination location
-     choose travel mode
-     drag the route
-     change the origin location or destination location you choosen before
+  
+     Edit an origin location and destination location.
+     
+     choose travel mode.
+     
+     drag the route.
+     
+     change the origin location or destination location you choosen before.
 
 4. Contacts
 ----------------
