@@ -104,10 +104,114 @@
     <input type="radio" name="type" id="changemode-driving">
     <label for="changemode-driving">Driving</label>
 </div>
+
 <div id="right-panel">
     <p>Total Distance: <span id="total"></span></p>
 </div>
+
 <div id="map"></div>
+
+<script>
+
+    //marker 顯示 infowindow
+    function ShowInfo(mapObj , markerObj) {
+        if (infowindow){
+            infowindow.close();
+        }
+        infowindow.setContent(InfoContent(markerObj));
+        infowindow.open(mapObj,markerObj);
+    }
+    //infowindow 顯示內容
+    function InfoContent(markerObj) {
+        html = "標記號碼：" + markerObj.title + "" +'</br>';
+        html += "緯度：" + markerObj.getPosition().lat() + ""+'</br>';
+        html += "經度：" + markerObj.getPosition().lng() + ""+'</br>';
+        return html;
+    }
+    //存放overview_path中marker陣列
+    markerarray = {
+
+        infowindow: [],
+
+        marker:[]
+
+    };
+    //總路線長與導航內容
+    function computeTotalDistance(result,map) {
+
+        var total = 0;
+        var myroute = result.routes[0];
+        for (var i = 0; i < myroute.legs.length; i++) {
+            total += myroute.legs[i].distance.value;
+        }
+        total = total / 1000;
+        document.getElementById('total').innerHTML = total + ' km';
+
+        addMarkerOverview_path(myroute,map);
+    }
+    //加入marker於導航折線上
+    function addMarkerOverview_path(myroute,map) {
+        marker = {};
+        var pointsArray = [];
+        pointsArray = myroute.overview_path;
+        //marker陣列清空
+        marker.length = 0 ;
+        for (var i = 0 ; i < pointsArray.length ; i++ ){
+            var path = poly.getPath();
+            path.push(pointsArray[i]);
+            marker[i] = new google.maps.Marker({
+                position: pointsArray[i],
+                title: '#' + i,
+                map: map
+            });
+            console.log(i);
+            console.log(marker[i].position.lat());
+            console.log(marker[i].position.lng());
+            var infowindow = new google.maps.InfoWindow({
+                content: 'contentString'
+            });
+            //設定 各標記點Marker的click事件
+            google.maps.event.addListener(marker[i], 'click', function() {
+                ShowInfo(map , this);
+            });
+            //存marker以便之後動作清除
+            markerarray.marker.push(marker[i]);
+        }
+    }
+    //去除marker與polyline
+    function removePolyandMarker(){
+        //poly去除
+        poly.setMap(null);
+        //把原先marker去除
+        for(var i = 0 ; i < markerarray.marker.length ; i++){
+            markerarray.marker[i].setMap(null);
+        }
+        //刪除marker陣列
+        markerarray.marker.length = 0;
+    }
+    //placeID 轉經緯度
+    function PlaceIDtoLatlng(PlaceId) {
+        var geocoder = new google.maps.Geocoder;
+        geocoder.geocode({'placeId': PlaceId}, function(results, status) {
+            if (status === 'OK') {
+                if (results[0]) {
+                    geocoder.geocode({
+                        'address': results[0].formatted_address
+                    }, function (results, status) {
+                        if (status == google.maps.GeocoderStatus.OK) {
+                           console.log(" 緯度 : " + results[0].geometry.location.lat() + "  經度 : " + results[0].geometry.location.lng());
+                        }
+                    });
+                } else {
+                    window.alert('No results found');
+                }
+            } else {
+                window.alert('Geocoder failed due to: ' + status);
+            }
+        });
+    }
+
+</script>
 
 <script>
     function initMap() {
@@ -124,11 +228,16 @@
         }
         new AutocompleteDirectionsHandler(map);
     }
-    /**
-     * @constructor
-     */
+
     function AutocompleteDirectionsHandler(map) {
+        infowindow = new google.maps.InfoWindow();
+        poly = new google.maps.Polyline({
+            strokeColor: '#000000',
+            strokeOpacity: 1.0,
+            strokeWeight: 3
+        });
         this.map = map;
+        poly.setMap(map);
         this.originPlaceId = null;
         this.destinationPlaceId = null;
         this.travelMode = 'WALKING';
@@ -136,23 +245,19 @@
         var destinationInput = document.getElementById('destination-input');
         var modeSelector = document.getElementById('mode-selector');
         this.directionsService = new google.maps.DirectionsService;
-        this.directionsDisplay = new google.maps.DirectionsRenderer(
-            {
+        this.directionsDisplay = new google.maps.DirectionsRenderer({
                 draggable: true,
                 map: map,
                 panel: document.getElementById('right-panel')
-            }
-        );
+            });
         var directionsDisplay = this.directionsDisplay;
         this.directionsDisplay.setMap(map);
         this.directionsDisplay.addListener('directions_changed', function() {
-            computeTotalDistance(directionsDisplay.getDirections());
+            removePolyandMarker();
+            computeTotalDistance(directionsDisplay.getDirections(),map);
         });
-
-        var originAutocomplete = new google.maps.places.Autocomplete(
-            originInput, {placeIdOnly: true});
-        var destinationAutocomplete = new google.maps.places.Autocomplete(
-            destinationInput, {placeIdOnly: true});
+        var originAutocomplete = new google.maps.places.Autocomplete(originInput, {placeIdOnly: true});
+        var destinationAutocomplete = new google.maps.places.Autocomplete(destinationInput, {placeIdOnly: true});
         this.setupClickListener('changemode-walking', 'WALKING',directionsDisplay);
         this.setupClickListener('changemode-transit', 'TRANSIT',directionsDisplay);
         this.setupClickListener('changemode-driving', 'DRIVING',directionsDisplay);
@@ -162,14 +267,12 @@
         this.map.controls[google.maps.ControlPosition.TOP_LEFT].push(destinationInput);
         this.map.controls[google.maps.ControlPosition.TOP_LEFT].push(modeSelector);
     }
-    // Sets a listener on a radio button to change the filter type on Places
-    // Autocomplete.
     AutocompleteDirectionsHandler.prototype.setupClickListener = function(id, mode,directionsDisplay) {
         var radioButton = document.getElementById(id);
         var me = this;
         radioButton.addEventListener('click', function() {
             me.travelMode = mode;
-            me.route(directionsDisplay);
+            me.route(directionsDisplay,this.map);
         });
     };
     AutocompleteDirectionsHandler.prototype.setupPlaceChangedListener = function(autocomplete, mode,directionsDisplay) {
@@ -183,13 +286,18 @@
             }
             if (mode === 'ORIG') {
                 me.originPlaceId = place.place_id;
+                console.log("origin" );
+                PlaceIDtoLatlng(me.originPlaceId);
             } else {
                 me.destinationPlaceId = place.place_id;
+                console.log("destination" );
+                PlaceIDtoLatlng(me.destinationPlaceId);
             }
-            me.route(directionsDisplay);
+            me.route(directionsDisplay,this.map);
         });
     };
-    AutocompleteDirectionsHandler.prototype.route = function(directionsDisplay) {
+    AutocompleteDirectionsHandler.prototype.route = function(directionsDisplay,map) {
+        removePolyandMarker();
         if (!this.originPlaceId || !this.destinationPlaceId) {
             return;
         }
@@ -202,22 +310,13 @@
         }, function(response, status) {
             if (status === 'OK') {
                 directionsDisplay.setDirections(response);
-                computeTotalDistance(directionsDisplay.getDirections());
+                computeTotalDistance(directionsDisplay.getDirections(),map);
             } else {
                 alert('Could not display directions due to: ' + status);
             }
         });
     };
-    function computeTotalDistance(result) {
-        var total = 0;
-        var myroute = result.routes[0];
-        for (var i = 0; i < myroute.legs.length; i++) {
-            total += myroute.legs[i].distance.value;
-            console.log(myroute.legs[i]);
-        }
-        total = total / 1000;
-        document.getElementById('total').innerHTML = total + ' km';
-    }
+
 </script>
 <script src="https://maps.googleapis.com/maps/api/js?key=YOURKET&libraries=places&callback=initMap"
         async defer></script>
