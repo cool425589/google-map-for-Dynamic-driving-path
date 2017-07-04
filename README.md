@@ -42,6 +42,8 @@ Give a placeid can covert to latlng.
 
   Example:
   
+     change the google map api key.
+  
      Edit an origin location and destination location.
      
      choose travel mode.
