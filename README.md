@@ -2,6 +2,7 @@
 2. basic function
 3. Quick start
 4. Contacts
+---------------
 
 1. About
 ----------
