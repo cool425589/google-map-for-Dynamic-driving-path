@@ -37,6 +37,10 @@ PlaceIDtoLatlng :
 
 Give a placeid can covert to latlng.
 
+addMarkerForPolyLine :
+
+add more marker by latlng.Those marker can use to depict the polyline for our route.
+
 3. Quick start
 --------------------------
 
