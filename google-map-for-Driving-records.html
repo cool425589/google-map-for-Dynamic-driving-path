@@ -210,7 +210,47 @@
             }
         });
     }
-
+    
+    //加入更詳盡的marker於導航折線上(可用於poly line上)
+    function addMarkerForPolyLine(myroute,map) {
+        marker = {};
+        var pointsArray = [];
+        //marker陣列清空
+        marker.length = 0 ;
+        var legs = myroute.legs;
+        var bounds = new google.maps.LatLngBounds();
+        for (i=0;i<legs.length;i++) {
+            var steps = legs[i].steps;
+            for (j=0;j<steps.length;j++) {
+                var nextSegment = steps[j].path;
+                for (k=0;k<nextSegment.length;k++) {
+                    pointsArray.push(new google.maps.LatLng(nextSegment[k].lat(),nextSegment[k].lng())) ;
+                    bounds.extend(nextSegment[k]);
+                }
+            }
+        }
+        for (var i = 0 ; i < pointsArray.length ; i++ ){
+            var path = poly.getPath();
+            path.push(pointsArray[i]);
+            marker[i] = new google.maps.Marker({
+                position: pointsArray[i],
+                title: '#' + i,
+                map: map
+            });
+            console.log(i);
+            console.log(marker[i].position.lat());
+            console.log(marker[i].position.lng());
+            var infowindow = new google.maps.InfoWindow({
+                content: 'contentString'
+            });
+            //設定 各標記點Marker的click事件
+            google.maps.event.addListener(marker[i], 'click', function() {
+                ShowInfo(map , this);
+            });
+            //存marker以便之後動作清除
+            markerarray.marker.push(marker[i]);
+        }
+    }
 </script>
 
 <script>
